@@ -41,6 +41,9 @@ contract GasStation {
         bool whitelistEnabled;
         // EOA's that are allowed to send gasless transactions to this contract
         mapping(address => bool) whitelist;
+        bool singleUseEnabled;
+        // Track addresses that have already used gasless transactions (for single-use mode)
+        mapping(address => bool) usedAddresses;
     }
 
     struct CreditPackage {
@@ -79,6 +82,7 @@ contract GasStation {
     event CreditPackageStatusChanged(uint256 indexed packageId, bool active);
     event CreditsPurchased(address indexed contractAddress, uint256 indexed packageId, uint256 amount, uint256 cost);
     event TokensBurned(address indexed token, uint256 amount);
+    event SingleUseStatusChanged(address indexed contractAddress, bool enabled);
 
     // Custom errors for better gas efficiency
     error NotDAO();
@@ -143,10 +147,11 @@ contract GasStation {
         bool active,
         address admin,
         uint256 credits,
-        bool whitelistEnabled
+        bool whitelistEnabled,
+        bool singleUseEnabled
     ) {
         GaslessContract storage gc = _getGasStationStorage().contracts[contractAddress];
-        return (gc.registered, gc.active, gc.admin, gc.credits, gc.whitelistEnabled);
+        return (gc.registered, gc.active, gc.admin, gc.credits, gc.whitelistEnabled, gc.singleUseEnabled);
     }
 
     function creditPackages(uint256 packageId) public view returns (
@@ -306,6 +311,20 @@ contract GasStation {
         return activePackages;
     }
 
+    /**
+     * @dev Check if an address has already used gasless transactions for a contract
+     */
+    function isAddressUsed(address contractAddress, address user) external view returns (bool) {
+        return _getGasStationStorage().contracts[contractAddress].usedAddresses[user];
+    }
+
+    /**
+     * @dev Get the single-use status of a contract
+     */
+    function getSingleUseStatus(address contractAddress) external view returns (bool) {
+        return _getGasStationStorage().contracts[contractAddress].singleUseEnabled;
+    }
+
     // === Configuration functions (onlyAdminOrDAO) ===
 
     /**
@@ -344,6 +363,15 @@ contract GasStation {
     }
 
     /**
+     * @dev Configure single-use mode for a contract
+     * @param enabled Whether single-use mode is enabled
+     */
+    function setSingleUseEnabled(address contractAddress, bool enabled) external onlyAdminOrDAO(contractAddress) {
+        _getGasStationStorage().contracts[contractAddress].singleUseEnabled = enabled;
+        emit SingleUseStatusChanged(contractAddress, enabled);
+    }
+
+    /**
      * @dev Add addresses to whitelist
      * @param users Array of addresses to whitelist
      */
@@ -360,6 +388,16 @@ contract GasStation {
     function removeFromWhitelist(address contractAddress, address[] calldata users) external onlyAdminOrDAO(contractAddress) {
         for (uint256 i = 0; i < users.length; i++) {
             _getGasStationStorage().contracts[contractAddress].whitelist[users[i]] = false;
+        }
+    }
+
+    /**
+     * @dev Reset used addresses for single-use mode (allows them to use gasless transactions again)
+     * @param users Array of addresses to reset
+     */
+    function resetUsedAddresses(address contractAddress, address[] calldata users) external onlyAdminOrDAO(contractAddress) {
+        for (uint256 i = 0; i < users.length; i++) {
+            _getGasStationStorage().contracts[contractAddress].usedAddresses[users[i]] = false;
         }
     }
 
