@@ -243,6 +243,19 @@ contract L2Genesis is Deployer {
                 EIP1967Helper.setImplementation(addr, implementation);
             }
         }
+
+        // Handle GasStation separately since it's outside the 0x42 range
+        if (!Predeploys.notProxied(Predeploys.GAS_STATION)) {
+            console.log("Setting GasStation proxy at %s", Predeploys.GAS_STATION);
+            vm.etch(Predeploys.GAS_STATION, code);
+            EIP1967Helper.setAdmin(Predeploys.GAS_STATION, Predeploys.PROXY_ADMIN);
+
+            if (Predeploys.isSupportedPredeploy(Predeploys.GAS_STATION, cfg.useInterop())) {
+                address implementation = Predeploys.predeployToCodeNamespace(Predeploys.GAS_STATION);
+                console.log("Setting proxy %s implementation: %s", Predeploys.GAS_STATION, implementation);
+                EIP1967Helper.setImplementation(Predeploys.GAS_STATION, implementation);
+            }
+        }
     }
 
     /// @notice Sets all the implementations for the predeploy proxies. For contracts without proxies,
@@ -277,6 +290,7 @@ contract L2Genesis is Deployer {
         setSchemaRegistry(); // 20
         setEAS(); // 21
         setGovernanceToken(); // 42: OP (not behind a proxy)
+        setGasStation(); // 4300...01: GasStation (proxied)
         if (cfg.useInterop()) {
             setCrossL2Inbox(); // 22
             setL2ToL2CrossDomainMessenger(); // 23
@@ -674,5 +688,11 @@ contract L2Genesis is Deployer {
             console.log("Funding dev account %s with %s ETH", devAccounts[i], DEV_ACCOUNT_FUND_AMT / 1e18);
             vm.deal(devAccounts[i], DEV_ACCOUNT_FUND_AMT);
         }
+    }
+
+    /// @notice This predeploy is following the safety invariant #1.
+    ///         This contract has no initializer.
+    function setGasStation() internal {
+        _setImplementationCode(Predeploys.GAS_STATION);
     }
 }
