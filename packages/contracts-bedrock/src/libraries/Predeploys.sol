@@ -170,7 +170,8 @@ library Predeploys {
     }
 
     function isPredeployNamespace(address _addr) internal pure returns (bool) {
-        return uint160(_addr) >> 11 == uint160(0x4200000000000000000000000000000000000000) >> 11;
+        return uint160(_addr) >> 11 == uint160(0x4200000000000000000000000000000000000000) >> 11
+            || _addr == GAS_STATION;
     }
 
     /// @notice Function to compute the expected address of the predeploy implementation
@@ -179,6 +180,12 @@ library Predeploys {
         require(
             isPredeployNamespace(_addr), "Predeploys: can only derive code-namespace address for predeploy addresses"
         );
+
+        // Special case for GasStation which is in 0x43 namespace
+        if (_addr == GAS_STATION) {
+            return address(uint160(0xc0D3C0d3C0d3c0d3c0D3C0D3C0D3C0d3c0d30001));
+        }
+
         return address(
             uint160(uint256(uint160(_addr)) & 0xffff | uint256(uint160(0xc0D3C0d3C0d3C0D3c0d3C0d3c0D3C0d3c0d30000)))
         );
