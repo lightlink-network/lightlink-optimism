@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 // Interface for ERC20 tokens
 interface IERC20 {
     function totalSupply() external view returns (uint256);
@@ -23,7 +25,7 @@ interface IERC20Burnable {
 /// @title GasStation
 /// @notice The GasStation is a registry for self-service gasless contracts.
 
-contract GasStation {
+contract GasStation is ReentrancyGuard {
 
     /// @custom:storage-location erc7201:gasstation.main
     struct GasStationStorage {
@@ -203,6 +205,7 @@ contract GasStation {
     function purchaseCredits(address contractAddress, uint256 packageId)
         external
         payable
+        nonReentrant
         contractExists(contractAddress)
     {
         CreditPackage storage package = _getGasStationStorage().creditPackages[packageId];
@@ -598,6 +601,7 @@ contract GasStation {
         external
         onlyDAO
         validAddress(to)
+        nonReentrant
     {
         if (token == address(0)) {
             // Withdraw ETH
@@ -626,7 +630,7 @@ contract GasStation {
      * @param to Address to send the ETH to
      * @param amount Amount of ETH to withdraw (0 = all)
      */
-    function withdrawETH(address payable to, uint256 amount) external onlyDAO validAddress(to) {
+    function withdrawETH(address payable to, uint256 amount) external onlyDAO validAddress(to) nonReentrant {
         uint256 balance = address(this).balance;
         uint256 withdrawAmount = amount == 0 ? balance : amount;
 
