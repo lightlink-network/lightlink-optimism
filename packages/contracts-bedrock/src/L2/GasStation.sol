@@ -171,14 +171,17 @@ contract GasStation is ReentrancyGuard {
     // === Public functions ===
 
     /**
-     * @dev Register a contract for gasless transactions
+     * @dev Register a contract for gasless transactions with mandatory credit package purchase
      * @param contractAddress Address of the contract to register
      * @param admin Address of the contract admin
+     * @param packageId ID of the credit package to purchase during registration
      */
-    function registerContract(address contractAddress, address admin)
+    function registerContract(address contractAddress, address admin, uint256 packageId)
         external
+        payable
         validAddress(contractAddress)
         validAddress(admin)
+        nonReentrant
     {
         if (_getGasStationStorage().contracts[contractAddress].registered) revert AlreadyRegistered();
 
@@ -187,14 +190,19 @@ contract GasStation is ReentrancyGuard {
         assembly { size := extcodesize(contractAddress) }
         if (size == 0) revert InvalidContract();
 
+        // Purchase credits first (this validates package and processes payment)
+        uint256 creditsAwarded = _purchaseCredits(packageId);
+
+        // Only register if credit purchase succeeded
         GaslessContract storage gc = _getGasStationStorage().contracts[contractAddress];
         gc.registered = true;
         gc.active = true;
         gc.admin = admin;
-        gc.credits = 0;
+        gc.credits = creditsAwarded;
         gc.whitelistEnabled = true;
 
         emit ContractRegistered(contractAddress, admin);
+        emit CreditsPurchased(contractAddress, packageId, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
     }
 
     /**
@@ -208,6 +216,20 @@ contract GasStation is ReentrancyGuard {
         nonReentrant
         contractExists(contractAddress)
     {
+        uint256 creditsAwarded = _purchaseCredits(packageId);
+
+        // Add credits to the contract
+        _getGasStationStorage().contracts[contractAddress].credits += creditsAwarded;
+
+        emit CreditsPurchased(contractAddress, packageId, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
+    }
+
+    /**
+     * @dev Internal function to purchase credits (validates package and processes payment)
+     * @param packageId ID of the credit package to purchase
+     * @return creditsAwarded Amount of credits awarded
+     */
+    function _purchaseCredits(uint256 packageId) internal returns (uint256 creditsAwarded) {
         CreditPackage storage package = _getGasStationStorage().creditPackages[packageId];
 
         // Check if package exists
@@ -225,10 +247,7 @@ contract GasStation is ReentrancyGuard {
             _handleTokenPayment(package);
         }
 
-        // Add credits to the contract
-        _getGasStationStorage().contracts[contractAddress].credits += package.creditsAwarded;
-
-        emit CreditsPurchased(contractAddress, packageId, package.creditsAwarded, package.costInWei);
+        return package.creditsAwarded;
     }
 
     /**
