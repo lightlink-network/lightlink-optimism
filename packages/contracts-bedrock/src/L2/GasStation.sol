@@ -592,41 +592,26 @@ contract GasStation is ReentrancyGuard {
     }
 
     /**
-     * @dev Withdraw accumulated tokens from credit purchases (DAO only)
-     * @param token Token address to withdraw (address(0) for ETH)
+     * @dev Withdraw ERC20 tokens from credit purchases (DAO only)
+     * @param token ERC20 token address to withdraw
      * @param to Address to send the tokens to
      * @param amount Amount to withdraw (0 = all available)
      */
-    function withdrawTokens(address token, address payable to, uint256 amount)
-        external
-        onlyDAO
-        validAddress(to)
-        nonReentrant
-    {
-        if (token == address(0)) {
-            // Withdraw ETH
-            uint256 balance = address(this).balance;
-            uint256 withdrawAmount = amount == 0 ? balance : amount;
+    function withdrawTokens(address token, address payable to, uint256 amount) external onlyDAO validAddress(to) nonReentrant {
+        if (token == address(0)) revert ZeroAddress(); // Don't allow ETH here
 
-            if (withdrawAmount > balance) revert InsufficientCredits();
+        IERC20 erc20 = IERC20(token);
+        uint256 balance = erc20.balanceOf(address(this));
+        uint256 withdrawAmount = amount == 0 ? balance : amount;
 
-            to.transfer(withdrawAmount);
-        } else {
-            // Withdraw ERC20 tokens
-            IERC20 erc20 = IERC20(token);
-            uint256 balance = erc20.balanceOf(address(this));
-            uint256 withdrawAmount = amount == 0 ? balance : amount;
+        if (withdrawAmount > balance) revert InsufficientCredits();
 
-            if (withdrawAmount > balance) revert InsufficientCredits();
-
-            if (!erc20.transfer(to, withdrawAmount)) {
-                revert TokenTransferFailed();
-            }
+        if (!erc20.transfer(to, withdrawAmount)) {
+            revert TokenTransferFailed();
         }
     }
-
     /**
-     * @dev Legacy function for withdrawing ETH - use withdrawTokens instead
+     * @dev Withdraw ETH from credit purchases (DAO only)
      * @param to Address to send the ETH to
      * @param amount Amount of ETH to withdraw (0 = all)
      */
