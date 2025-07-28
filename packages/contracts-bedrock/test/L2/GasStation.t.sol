@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.15;
 
 import { Test } from "forge-std/Test.sol";
 import { GasStation } from "src/L2/GasStation.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC20Mock } from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Mock burnable token for testing
 contract MockBurnableToken is ERC20Mock {
@@ -111,7 +112,15 @@ contract GasStationTest is Test {
     event TokenPaymentProcessed(address indexed payer, address indexed token, uint256 amount, uint256 burnAmount);
 
     function setUp() public {
-        gasStation = new GasStation(dao);
+        // Deploy implementation
+        GasStation implementation = new GasStation();
+
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSignature("initialize(address)", dao);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+
+        // Cast proxy to GasStation interface
+        gasStation = GasStation(payable(address(proxy)));
         burnableToken = new MockBurnableToken();
         nonBurnableToken = new MockNonBurnableToken();
         targetContract = new MockTargetContract();
@@ -143,9 +152,14 @@ contract GasStationTest is Test {
         assertEq(gasStation.getNextPackageId(), 4); // 3 packages added in setup + starts at 1
     }
 
-    function test_constructor_revertsZeroAddress() public {
+    function test_initialize_revertsZeroAddress() public {
+        // Deploy implementation
+        GasStation implementation = new GasStation();
+
+        // Try to initialize with zero address (should revert)
+        bytes memory initData = abi.encodeWithSignature("initialize(address)", address(0));
         vm.expectRevert(GasStation.ZeroAddress.selector);
-        new GasStation(address(0));
+        new ERC1967Proxy(address(implementation), initData);
     }
 
     // =============================================================================

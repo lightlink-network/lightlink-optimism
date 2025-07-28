@@ -32,6 +32,7 @@ import { ICrossDomainMessenger } from "interfaces/universal/ICrossDomainMessenge
 import { IL2CrossDomainMessenger } from "interfaces/L2/IL2CrossDomainMessenger.sol";
 import { IGasPriceOracle } from "interfaces/L2/IGasPriceOracle.sol";
 import { IL1Block } from "interfaces/L2/IL1Block.sol";
+import { GasStation } from "src/L2/GasStation.sol";
 
 struct L1Dependencies {
     address payable l1CrossDomainMessengerProxy;
@@ -691,8 +692,11 @@ contract L2Genesis is Deployer {
     }
 
     /// @notice This predeploy is following the safety invariant #1.
-    ///         This contract has no initializer.
     function setGasStation() internal {
-        _setImplementationCode(Predeploys.GAS_STATION);
+        address impl = _setImplementationCode(Predeploys.GAS_STATION);
+
+        GasStation(payable(impl)).initialize({ _dao: address(0) });
+
+        GasStation(payable(Predeploys.GAS_STATION)).initialize({ _dao: cfg.finalSystemOwner() });
     }
 }

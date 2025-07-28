@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.15;
 
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 // Interface for ERC20 tokens
 interface IERC20 {
@@ -25,7 +26,7 @@ interface IERC20Burnable {
 /// @title GasStation
 /// @notice The GasStation is a registry for self-service gasless contracts.
 
-contract GasStation is ReentrancyGuard {
+contract GasStation is ReentrancyGuard, Initializable {
     /// @custom:storage-location erc7201:gasstation.main
     struct GasStationStorage {
         address dao;
@@ -57,12 +58,12 @@ contract GasStation is ReentrancyGuard {
     }
 
     // keccak256(abi.encode(uint256(keccak256("gasstation.main")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant GasStationStorageLocation =
+    bytes32 private constant GAS_STATION_STORAGE_LOCATION =
         0xc2eaf2cedf9e23687c6eb7c4717aa3eacbd015cc86eaad3f51aae2d3c955db00;
 
     function _getGasStationStorage() private pure returns (GasStationStorage storage $) {
         assembly {
-            $.slot := GasStationStorageLocation
+            $.slot := GAS_STATION_STORAGE_LOCATION
         }
     }
 
@@ -182,7 +183,13 @@ contract GasStation is ReentrancyGuard {
         _;
     }
 
-    constructor(address _dao) validAddress(_dao) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initializer.
+    /// @param _dao Address of the DAO multisig
+    function initialize(address _dao) external initializer validAddress(_dao) {
         GasStationStorage storage $ = _getGasStationStorage();
         $.dao = _dao;
         $.nextPackageId = 1;
