@@ -286,7 +286,7 @@ contract GasStationTest is Test {
         assertTrue(gasStation.getWhitelistStatus(address(targetContract)));
     }
 
-    function test_getActivePackageIds() public {
+    function test_getActivePackageIds() public view {
         uint256[] memory activeIds = gasStation.getActivePackageIds();
         assertEq(activeIds.length, 3);
         assertEq(activeIds[0], 1);
@@ -308,12 +308,12 @@ contract GasStationTest is Test {
         assertFalse(gasStation.getSingleUseStatus(address(targetContract)));
     }
 
-    function test_isPackageActive() public {
+    function test_isPackageActive() public view {
         assertTrue(gasStation.isPackageActive(1));
         assertFalse(gasStation.isPackageActive(999));
     }
 
-    function test_creditPackages() public {
+    function test_creditPackages() public view {
         (bool active, string memory name, uint256 cost, uint256 credits, address token, uint256 burnPct) = gasStation.creditPackages(1);
 
         assertTrue(active);
