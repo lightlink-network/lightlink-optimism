@@ -8,7 +8,7 @@ import { ERC20Mock } from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
 
 // Mock burnable token for testing
 contract MockBurnableToken is ERC20Mock {
-    constructor() ERC20Mock("MockBurnable", "MBRN", msg.sender, 0) {}
+    constructor() ERC20Mock("MockBurnable", "MBRN", msg.sender, 0) { }
 
     function burn(uint256 amount) external {
         _burn(msg.sender, amount);
@@ -21,7 +21,7 @@ contract MockBurnableToken is ERC20Mock {
 
 // Mock non-burnable token
 contract MockNonBurnableToken is ERC20Mock {
-    constructor() ERC20Mock("MockNonBurnable", "MNBRN", msg.sender, 0) {}
+    constructor() ERC20Mock("MockNonBurnable", "MNBRN", msg.sender, 0) { }
 }
 
 // Mock contract for testing
@@ -53,11 +53,21 @@ contract GasStationTest is Test {
     event CreditsAdded(address indexed contractAddress, uint256 amount, address indexed by);
     event CreditsRemoved(address indexed contractAddress, uint256 amount, address indexed by);
     event CreditsSet(address indexed contractAddress, uint256 previousAmount, uint256 newAmount, address indexed by);
-    event CreditsUsed(address indexed contractAddress, address indexed caller, uint256 gasUsed, uint256 creditsDeducted);
-    event CreditsPurchased(address indexed contractAddress, uint256 indexed packageId, address indexed purchaser, uint256 creditsAwarded, uint256 cost);
+    event CreditsUsed(
+        address indexed contractAddress, address indexed caller, uint256 gasUsed, uint256 creditsDeducted
+    );
+    event CreditsPurchased(
+        address indexed contractAddress,
+        uint256 indexed packageId,
+        address indexed purchaser,
+        uint256 creditsAwarded,
+        uint256 cost
+    );
 
     // Configuration Changes
-    event AdminChanged(address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin, address changedBy);
+    event AdminChanged(
+        address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin, address changedBy
+    );
     event ActiveStatusChanged(address indexed contractAddress, bool active, address indexed changedBy);
     event WhitelistStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
     event SingleUseStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
@@ -71,8 +81,24 @@ contract GasStationTest is Test {
     event DAOChanged(address indexed oldDAO, address indexed newDAO);
 
     // Credit Packages
-    event CreditPackageAdded(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed addedBy);
-    event CreditPackageUpdated(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed updatedBy);
+    event CreditPackageAdded(
+        uint256 indexed packageId,
+        string name,
+        uint256 cost,
+        uint256 creditsAwarded,
+        address indexed paymentToken,
+        uint256 burnPercentage,
+        address indexed addedBy
+    );
+    event CreditPackageUpdated(
+        uint256 indexed packageId,
+        string name,
+        uint256 cost,
+        uint256 creditsAwarded,
+        address indexed paymentToken,
+        uint256 burnPercentage,
+        address indexed updatedBy
+    );
     event CreditPackageStatusChanged(uint256 indexed packageId, bool active, address indexed changedBy);
 
     // Financial Operations
@@ -135,10 +161,17 @@ contract GasStationTest is Test {
         vm.expectEmit(true, true, true, true);
         emit CreditsPurchased(address(targetContract), 1, user, 1000, 0.1 ether);
 
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
         vm.stopPrank();
 
-        (bool registered, bool active, address contractAdmin, uint256 credits, bool whitelistEnabled, bool singleUseEnabled) = gasStation.contracts(address(targetContract));
+        (
+            bool registered,
+            bool active,
+            address contractAdmin,
+            uint256 credits,
+            bool whitelistEnabled,
+            bool singleUseEnabled
+        ) = gasStation.contracts(address(targetContract));
 
         assertTrue(registered);
         assertTrue(active);
@@ -155,50 +188,50 @@ contract GasStationTest is Test {
         gasStation.registerContract(address(targetContract), admin, 3);
         vm.stopPrank();
 
-        (, , , uint256 credits, , ) = gasStation.contracts(address(targetContract));
+        (,,, uint256 credits,,) = gasStation.contracts(address(targetContract));
         assertEq(credits, 5000);
         assertEq(burnableToken.balanceOf(address(gasStation)), 80e18); // 100 - 20% burned
     }
 
     function test_registerContract_revertsAlreadyRegistered() public {
         vm.startPrank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.expectRevert(GasStation.AlreadyRegistered.selector);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
         vm.stopPrank();
     }
 
     function test_registerContract_revertsZeroAddressContract() public {
         vm.expectRevert(GasStation.ZeroAddress.selector);
-        gasStation.registerContract{value: 0.1 ether}(address(0), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(0), admin, 1);
     }
 
     function test_registerContract_revertsZeroAddressAdmin() public {
         vm.expectRevert(GasStation.ZeroAddress.selector);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), address(0), 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), address(0), 1);
     }
 
     function test_registerContract_revertsInvalidContract() public {
         vm.expectRevert(GasStation.InvalidContract.selector);
-        gasStation.registerContract{value: 0.1 ether}(user, admin, 1); // EOA, not contract
+        gasStation.registerContract{ value: 0.1 ether }(user, admin, 1); // EOA, not contract
     }
 
     function test_registerContract_revertsPackageNotFound() public {
         vm.expectRevert(GasStation.PackageNotFound.selector);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 999);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 999);
     }
 
     function test_registerContract_revertsInsufficientPayment() public {
         vm.expectRevert(GasStation.InsufficientPayment.selector);
-        gasStation.registerContract{value: 0.05 ether}(address(targetContract), admin, 1); // Needs 0.1 ether
+        gasStation.registerContract{ value: 0.05 ether }(address(targetContract), admin, 1); // Needs 0.1 ether
     }
 
     function test_registerContract_refundsExcessPayment() public {
         uint256 initialBalance = user.balance;
 
         vm.prank(user);
-        gasStation.registerContract{value: 0.2 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.2 ether }(address(targetContract), admin, 1);
 
         assertEq(user.balance, initialBalance - 0.1 ether); // Only charged 0.1 ether
     }
@@ -210,23 +243,23 @@ contract GasStationTest is Test {
     function test_purchaseCredits_success() public {
         // Register contract first
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         // Purchase more credits
         vm.startPrank(user);
         vm.expectEmit(true, true, true, true);
         emit CreditsPurchased(address(targetContract), 2, user, 10000, 1 ether);
 
-        gasStation.purchaseCredits{value: 1 ether}(address(targetContract), 2);
+        gasStation.purchaseCredits{ value: 1 ether }(address(targetContract), 2);
         vm.stopPrank();
 
-        (, , , uint256 credits, , ) = gasStation.contracts(address(targetContract));
+        (,,, uint256 credits,,) = gasStation.contracts(address(targetContract));
         assertEq(credits, 11000); // 1000 + 10000
     }
 
     function test_purchaseCredits_revertsNotRegistered() public {
         vm.expectRevert(GasStation.NotRegistered.selector);
-        gasStation.purchaseCredits{value: 0.1 ether}(address(targetContract), 1);
+        gasStation.purchaseCredits{ value: 0.1 ether }(address(targetContract), 1);
     }
 
     // =============================================================================
@@ -235,14 +268,14 @@ contract GasStationTest is Test {
 
     function test_getAdmin() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertEq(gasStation.getAdmin(address(targetContract)), admin);
     }
 
     function test_getCredits() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertEq(gasStation.getCredits(address(targetContract)), 1000);
     }
@@ -251,21 +284,21 @@ contract GasStationTest is Test {
         assertFalse(gasStation.isRegistered(address(targetContract)));
 
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertTrue(gasStation.isRegistered(address(targetContract)));
     }
 
     function test_isActive() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertTrue(gasStation.isActive(address(targetContract)));
     }
 
     function test_isWhitelisted() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         // Whitelist enabled by default, user not whitelisted
         assertFalse(gasStation.isWhitelisted(address(targetContract), user));
@@ -281,7 +314,7 @@ contract GasStationTest is Test {
 
     function test_getWhitelistStatus() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertTrue(gasStation.getWhitelistStatus(address(targetContract)));
     }
@@ -296,14 +329,14 @@ contract GasStationTest is Test {
 
     function test_isAddressUsed() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertFalse(gasStation.isAddressUsed(address(targetContract), user));
     }
 
     function test_getSingleUseStatus() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertFalse(gasStation.getSingleUseStatus(address(targetContract)));
     }
@@ -314,7 +347,8 @@ contract GasStationTest is Test {
     }
 
     function test_creditPackages() public view {
-        (bool active, string memory name, uint256 cost, uint256 credits, address token, uint256 burnPct) = gasStation.creditPackages(1);
+        (bool active, string memory name, uint256 cost, uint256 credits, address token, uint256 burnPct) =
+            gasStation.creditPackages(1);
 
         assertTrue(active);
         assertEq(name, "Starter");
@@ -330,7 +364,7 @@ contract GasStationTest is Test {
 
     function test_setAdmin_success() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(admin);
         vm.expectEmit(true, true, true, true);
@@ -344,7 +378,7 @@ contract GasStationTest is Test {
 
     function test_setAdmin_daoCanChange() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.prank(dao);
         gasStation.setAdmin(address(targetContract), otherUser);
@@ -354,7 +388,7 @@ contract GasStationTest is Test {
 
     function test_setAdmin_revertsNotAuthorized() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.expectRevert(GasStation.NotAuthorized.selector);
         vm.prank(nonAdmin);
@@ -363,7 +397,7 @@ contract GasStationTest is Test {
 
     function test_setAdmin_revertsZeroAddress() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.expectRevert(GasStation.ZeroAddress.selector);
         vm.prank(admin);
@@ -372,7 +406,7 @@ contract GasStationTest is Test {
 
     function test_setActive() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(admin);
         vm.expectEmit(true, false, false, true);
@@ -386,7 +420,7 @@ contract GasStationTest is Test {
 
     function test_setWhitelistEnabled() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(admin);
         vm.expectEmit(true, false, false, true);
@@ -402,7 +436,7 @@ contract GasStationTest is Test {
 
     function test_setSingleUseEnabled() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(admin);
         vm.expectEmit(true, false, false, true);
@@ -416,7 +450,7 @@ contract GasStationTest is Test {
 
     function test_addToWhitelist() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         address[] memory users = new address[](2);
         users[0] = user;
@@ -431,7 +465,7 @@ contract GasStationTest is Test {
 
     function test_removeFromWhitelist() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         // Add first
         address[] memory users = new address[](1);
@@ -449,7 +483,7 @@ contract GasStationTest is Test {
 
     function test_resetUsedAddresses() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         address[] memory users = new address[](1);
         users[0] = user;
@@ -466,7 +500,7 @@ contract GasStationTest is Test {
 
     function test_addCredits() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
@@ -486,7 +520,7 @@ contract GasStationTest is Test {
 
     function test_removeCredits() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
@@ -500,7 +534,7 @@ contract GasStationTest is Test {
 
     function test_removeCredits_revertsInsufficientCredits() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.expectRevert(GasStation.InsufficientCredits.selector);
         vm.prank(dao);
@@ -509,7 +543,7 @@ contract GasStationTest is Test {
 
     function test_setCredits() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
@@ -523,7 +557,7 @@ contract GasStationTest is Test {
 
     function test_unregisterContract() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertTrue(gasStation.isRegistered(address(targetContract)));
 
@@ -539,7 +573,7 @@ contract GasStationTest is Test {
 
     function test_removeContract() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
@@ -580,7 +614,8 @@ contract GasStationTest is Test {
         gasStation.addCreditPackage("Enterprise", 5 ether, 50000, address(0), 0);
         vm.stopPrank();
 
-        (bool active, string memory name, uint256 cost, uint256 credits, address token, uint256 burnPct) = gasStation.creditPackages(4);
+        (bool active, string memory name, uint256 cost, uint256 credits, address token, uint256 burnPct) =
+            gasStation.creditPackages(4);
 
         assertTrue(active);
         assertEq(name, "Enterprise");
@@ -610,7 +645,8 @@ contract GasStationTest is Test {
         gasStation.updateCreditPackage(1, "Updated Starter", 0.2 ether, 2000, address(burnableToken), 1000);
         vm.stopPrank();
 
-        (bool active, string memory name, uint256 cost, uint256 credits, address token, uint256 burnPct) = gasStation.creditPackages(1);
+        (bool active, string memory name, uint256 cost, uint256 credits, address token, uint256 burnPct) =
+            gasStation.creditPackages(1);
 
         assertTrue(active);
         assertEq(name, "Updated Starter");
@@ -690,7 +726,8 @@ contract GasStationTest is Test {
         burnableToken.approve(address(gasStation), 100e18);
 
         vm.expectRevert(GasStation.InvalidTokenPayment.selector);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 3); // Sent ETH for token package
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 3); // Sent ETH for token
+            // package
         vm.stopPrank();
     }
 
@@ -701,7 +738,7 @@ contract GasStationTest is Test {
     function test_withdrawETH() public {
         // Register contract to add ETH to contract
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         uint256 initialBalance = otherUser.balance;
 
@@ -714,7 +751,7 @@ contract GasStationTest is Test {
 
     function test_withdrawETH_withdrawAll() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         uint256 initialBalance = otherUser.balance;
 
@@ -727,7 +764,7 @@ contract GasStationTest is Test {
 
     function test_withdrawETH_revertsInsufficientCredits() public {
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         vm.expectRevert(GasStation.InsufficientCredits.selector);
         vm.prank(dao);
@@ -786,7 +823,7 @@ contract GasStationTest is Test {
         uint256 initialBalance = address(gasStation).balance;
 
         vm.prank(user);
-        (bool success,) = address(gasStation).call{value: 1 ether}("");
+        (bool success,) = address(gasStation).call{ value: 1 ether }("");
 
         assertTrue(success);
         assertEq(address(gasStation).balance, initialBalance + 1 ether);
@@ -803,7 +840,7 @@ contract GasStationTest is Test {
     function test_reentrancyProtection_registerContract() public {
         // This test verifies the modifier is present - actual reentrancy testing would require a malicious contract
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         assertTrue(gasStation.isRegistered(address(targetContract)));
     }
@@ -816,8 +853,8 @@ contract GasStationTest is Test {
         MockTargetContract contract2 = new MockTargetContract();
 
         vm.startPrank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
-        gasStation.registerContract{value: 0.1 ether}(address(contract2), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(contract2), admin, 1);
         vm.stopPrank();
 
         assertTrue(gasStation.isRegistered(address(targetContract)));
@@ -832,7 +869,7 @@ contract GasStationTest is Test {
 
         vm.expectRevert(GasStation.PackageNotActive.selector);
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
     }
 
     function test_extremeValues() public {
@@ -849,7 +886,7 @@ contract GasStationTest is Test {
         uint256 gasBefore = gasleft();
 
         vm.prank(user);
-        gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
+        gasStation.registerContract{ value: 0.1 ether }(address(targetContract), admin, 1);
 
         uint256 gasUsed = gasBefore - gasleft();
 

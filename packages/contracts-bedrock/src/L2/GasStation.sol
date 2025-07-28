@@ -26,7 +26,6 @@ interface IERC20Burnable {
 /// @notice The GasStation is a registry for self-service gasless contracts.
 
 contract GasStation is ReentrancyGuard {
-
     /// @custom:storage-location erc7201:gasstation.main
     struct GasStationStorage {
         address dao;
@@ -78,11 +77,21 @@ contract GasStation is ReentrancyGuard {
     event CreditsAdded(address indexed contractAddress, uint256 amount, address indexed by);
     event CreditsRemoved(address indexed contractAddress, uint256 amount, address indexed by);
     event CreditsSet(address indexed contractAddress, uint256 previousAmount, uint256 newAmount, address indexed by);
-    event CreditsUsed(address indexed contractAddress, address indexed caller, uint256 gasUsed, uint256 creditsDeducted);
-    event CreditsPurchased(address indexed contractAddress, uint256 indexed packageId, address indexed purchaser, uint256 creditsAwarded, uint256 cost);
+    event CreditsUsed(
+        address indexed contractAddress, address indexed caller, uint256 gasUsed, uint256 creditsDeducted
+    );
+    event CreditsPurchased(
+        address indexed contractAddress,
+        uint256 indexed packageId,
+        address indexed purchaser,
+        uint256 creditsAwarded,
+        uint256 cost
+    );
 
     // Configuration Changes
-    event AdminChanged(address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin, address changedBy);
+    event AdminChanged(
+        address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin, address changedBy
+    );
     event ActiveStatusChanged(address indexed contractAddress, bool active, address indexed changedBy);
     event WhitelistStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
     event SingleUseStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
@@ -96,8 +105,24 @@ contract GasStation is ReentrancyGuard {
     event DAOChanged(address indexed oldDAO, address indexed newDAO);
 
     // Credit Packages
-    event CreditPackageAdded(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed addedBy);
-    event CreditPackageUpdated(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed updatedBy);
+    event CreditPackageAdded(
+        uint256 indexed packageId,
+        string name,
+        uint256 cost,
+        uint256 creditsAwarded,
+        address indexed paymentToken,
+        uint256 burnPercentage,
+        address indexed addedBy
+    );
+    event CreditPackageUpdated(
+        uint256 indexed packageId,
+        string name,
+        uint256 cost,
+        uint256 creditsAwarded,
+        address indexed paymentToken,
+        uint256 burnPercentage,
+        address indexed updatedBy
+    );
     event CreditPackageStatusChanged(uint256 indexed packageId, bool active, address indexed changedBy);
 
     // Financial Operations
@@ -167,28 +192,43 @@ contract GasStation is ReentrancyGuard {
         return _getGasStationStorage().dao;
     }
 
-    function contracts(address contractAddress) public view returns (
-        bool registered,
-        bool active,
-        address admin,
-        uint256 credits,
-        bool whitelistEnabled,
-        bool singleUseEnabled
-    ) {
+    function contracts(address contractAddress)
+        public
+        view
+        returns (
+            bool registered,
+            bool active,
+            address admin,
+            uint256 credits,
+            bool whitelistEnabled,
+            bool singleUseEnabled
+        )
+    {
         GaslessContract storage gc = _getGasStationStorage().contracts[contractAddress];
         return (gc.registered, gc.active, gc.admin, gc.credits, gc.whitelistEnabled, gc.singleUseEnabled);
     }
 
-    function creditPackages(uint256 packageId) public view returns (
-        bool active,
-        string memory name,
-        uint256 costInWei,
-        uint256 creditsAwarded,
-        address paymentToken,
-        uint256 burnPercentage
-    ) {
+    function creditPackages(uint256 packageId)
+        public
+        view
+        returns (
+            bool active,
+            string memory name,
+            uint256 costInWei,
+            uint256 creditsAwarded,
+            address paymentToken,
+            uint256 burnPercentage
+        )
+    {
         CreditPackage storage package = _getGasStationStorage().creditPackages[packageId];
-        return (package.active, package.name, package.costInWei, package.creditsAwarded, package.paymentToken, package.burnPercentage);
+        return (
+            package.active,
+            package.name,
+            package.costInWei,
+            package.creditsAwarded,
+            package.paymentToken,
+            package.burnPercentage
+        );
     }
 
     // === Public functions ===
@@ -199,7 +239,11 @@ contract GasStation is ReentrancyGuard {
      * @param admin Address of the contract admin
      * @param packageId ID of the credit package to purchase during registration
      */
-    function registerContract(address contractAddress, address admin, uint256 packageId)
+    function registerContract(
+        address contractAddress,
+        address admin,
+        uint256 packageId
+    )
         external
         payable
         validAddress(contractAddress)
@@ -210,7 +254,9 @@ contract GasStation is ReentrancyGuard {
 
         // Validate that contractAddress is actually a contract
         uint256 size;
-        assembly { size := extcodesize(contractAddress) }
+        assembly {
+            size := extcodesize(contractAddress)
+        }
         if (size == 0) revert InvalidContract();
 
         // Purchase credits first (this validates package and processes payment)
@@ -225,7 +271,13 @@ contract GasStation is ReentrancyGuard {
         gc.whitelistEnabled = true;
 
         emit ContractRegistered(contractAddress, admin, msg.sender);
-        emit CreditsPurchased(contractAddress, packageId, msg.sender, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
+        emit CreditsPurchased(
+            contractAddress,
+            packageId,
+            msg.sender,
+            creditsAwarded,
+            _getGasStationStorage().creditPackages[packageId].costInWei
+        );
     }
 
     /**
@@ -233,7 +285,10 @@ contract GasStation is ReentrancyGuard {
      * @param contractAddress Address of the contract to add credits to
      * @param packageId ID of the credit package to purchase
      */
-    function purchaseCredits(address contractAddress, uint256 packageId)
+    function purchaseCredits(
+        address contractAddress,
+        uint256 packageId
+    )
         external
         payable
         nonReentrant
@@ -244,7 +299,13 @@ contract GasStation is ReentrancyGuard {
         // Add credits to the contract
         _getGasStationStorage().contracts[contractAddress].credits += creditsAwarded;
 
-        emit CreditsPurchased(contractAddress, packageId, msg.sender, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
+        emit CreditsPurchased(
+            contractAddress,
+            packageId,
+            msg.sender,
+            creditsAwarded,
+            _getGasStationStorage().creditPackages[packageId].costInWei
+        );
     }
 
     /**
@@ -305,7 +366,8 @@ contract GasStation is ReentrancyGuard {
      * @dev Check if an address is whitelisted
      */
     function isWhitelisted(address contractAddress, address user) external view returns (bool) {
-        return !_getGasStationStorage().contracts[contractAddress].whitelistEnabled || _getGasStationStorage().contracts[contractAddress].whitelist[user];
+        return !_getGasStationStorage().contracts[contractAddress].whitelistEnabled
+            || _getGasStationStorage().contracts[contractAddress].whitelist[user];
     }
 
     /**
@@ -375,7 +437,10 @@ contract GasStation is ReentrancyGuard {
     /**
      * @dev Configure the admin of a contract
      */
-    function setAdmin(address contractAddress, address newAdmin)
+    function setAdmin(
+        address contractAddress,
+        address newAdmin
+    )
         external
         onlyAdminOrDAO(contractAddress)
         contractExists(contractAddress)
@@ -389,7 +454,10 @@ contract GasStation is ReentrancyGuard {
     /**
      * @dev Configure the active status of a contract
      */
-    function setActive(address contractAddress, bool active)
+    function setActive(
+        address contractAddress,
+        bool active
+    )
         external
         onlyAdminOrDAO(contractAddress)
         contractExists(contractAddress)
@@ -420,7 +488,13 @@ contract GasStation is ReentrancyGuard {
      * @dev Add addresses to whitelist
      * @param users Array of addresses to whitelist
      */
-    function addToWhitelist(address contractAddress, address[] calldata users) external onlyAdminOrDAO(contractAddress) {
+    function addToWhitelist(
+        address contractAddress,
+        address[] calldata users
+    )
+        external
+        onlyAdminOrDAO(contractAddress)
+    {
         for (uint256 i = 0; i < users.length; i++) {
             _getGasStationStorage().contracts[contractAddress].whitelist[users[i]] = true;
         }
@@ -431,7 +505,13 @@ contract GasStation is ReentrancyGuard {
      * @dev Remove addresses from whitelist
      * @param users Array of addresses to remove from whitelist
      */
-    function removeFromWhitelist(address contractAddress, address[] calldata users) external onlyAdminOrDAO(contractAddress) {
+    function removeFromWhitelist(
+        address contractAddress,
+        address[] calldata users
+    )
+        external
+        onlyAdminOrDAO(contractAddress)
+    {
         for (uint256 i = 0; i < users.length; i++) {
             _getGasStationStorage().contracts[contractAddress].whitelist[users[i]] = false;
         }
@@ -442,7 +522,13 @@ contract GasStation is ReentrancyGuard {
      * @dev Reset used addresses for single-use mode (allows them to use gasless transactions again)
      * @param users Array of addresses to reset
      */
-    function resetUsedAddresses(address contractAddress, address[] calldata users) external onlyAdminOrDAO(contractAddress) {
+    function resetUsedAddresses(
+        address contractAddress,
+        address[] calldata users
+    )
+        external
+        onlyAdminOrDAO(contractAddress)
+    {
         for (uint256 i = 0; i < users.length; i++) {
             _getGasStationStorage().contracts[contractAddress].usedAddresses[users[i]] = false;
         }
@@ -464,11 +550,7 @@ contract GasStation is ReentrancyGuard {
     /**
      * @dev Remove credits from a contract with underflow protection
      */
-    function removeCredits(address contractAddress, uint256 amount)
-        external
-        onlyDAO
-        contractExists(contractAddress)
-    {
+    function removeCredits(address contractAddress, uint256 amount) external onlyDAO contractExists(contractAddress) {
         uint256 currentCredits = _getGasStationStorage().contracts[contractAddress].credits;
         if (currentCredits < amount) revert InsufficientCredits();
 
@@ -528,7 +610,10 @@ contract GasStation is ReentrancyGuard {
         uint256 creditsAwarded,
         address paymentToken,
         uint256 burnPercentage
-    ) external onlyDAO {
+    )
+        external
+        onlyDAO
+    {
         if (bytes(name).length == 0) revert EmptyPackageName();
         if (burnPercentage > 10000) revert InvalidBurnPercentage();
 
@@ -564,7 +649,10 @@ contract GasStation is ReentrancyGuard {
         uint256 creditsAwarded,
         address paymentToken,
         uint256 burnPercentage
-    ) external onlyDAO {
+    )
+        external
+        onlyDAO
+    {
         if (bytes(name).length == 0) revert EmptyPackageName();
         if (burnPercentage > 10000) revert InvalidBurnPercentage();
 
@@ -650,7 +738,16 @@ contract GasStation is ReentrancyGuard {
      * @param to Address to send the tokens to
      * @param amount Amount to withdraw (0 = all available)
      */
-    function withdrawTokens(address token, address payable to, uint256 amount) external onlyDAO validAddress(to) nonReentrant {
+    function withdrawTokens(
+        address token,
+        address payable to,
+        uint256 amount
+    )
+        external
+        onlyDAO
+        validAddress(to)
+        nonReentrant
+    {
         if (token == address(0)) revert ZeroAddress(); // Don't allow ETH here
 
         IERC20 erc20 = IERC20(token);
@@ -670,6 +767,7 @@ contract GasStation is ReentrancyGuard {
      * @param to Address to send the ETH to
      * @param amount Amount of ETH to withdraw (0 = all)
      */
+
     function withdrawETH(address payable to, uint256 amount) external onlyDAO validAddress(to) nonReentrant {
         uint256 balance = address(this).balance;
         uint256 withdrawAmount = amount == 0 ? balance : amount;
@@ -683,5 +781,5 @@ contract GasStation is ReentrancyGuard {
     /**
      * @dev Allow contract to receive ETH for credit purchases
      */
-    receive() external payable {}
+    receive() external payable { }
 }

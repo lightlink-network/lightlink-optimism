@@ -170,8 +170,7 @@ library Predeploys {
     }
 
     function isPredeployNamespace(address _addr) internal pure returns (bool) {
-        return uint160(_addr) >> 11 == uint160(0x4200000000000000000000000000000000000000) >> 11
-            || _addr == GAS_STATION;
+        return uint160(_addr) >> 11 == uint160(0x4200000000000000000000000000000000000000) >> 11 || _addr == GAS_STATION;
     }
 
     /// @notice Function to compute the expected address of the predeploy implementation
