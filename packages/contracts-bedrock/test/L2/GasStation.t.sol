@@ -138,7 +138,7 @@ contract GasStationTest is Test {
     // CONSTRUCTOR TESTS
     // =============================================================================
 
-    function test_constructor_setsDAO() public {
+    function test_constructor_setsDAO() public view {
         assertEq(gasStation.dao(), dao);
         assertEq(gasStation.getNextPackageId(), 4); // 3 packages added in setup + starts at 1
     }
