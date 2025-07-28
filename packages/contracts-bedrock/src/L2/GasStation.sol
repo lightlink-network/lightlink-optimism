@@ -67,24 +67,47 @@ contract GasStation is ReentrancyGuard {
         }
     }
 
-    // Events
-    event ContractRegistered(address indexed contractAddress, address indexed admin);
-    event CreditsAdded(address indexed contractAddress, uint256 amount);
-    event CreditsUsed(address indexed contractAddress, address caller, uint256 gasUsed);
-    event CreditsRemoved(address indexed contractAddress, uint256 amount);
-    event CreditsSet(address indexed contractAddress, uint256 amount);
-    event ContractUnregistered(address indexed contractAddress);
-    event ContractRemoved(address indexed contractAddress);
-    event AdminChanged(address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin);
-    event ActiveStatusChanged(address indexed contractAddress, bool active);
-    event WhitelistStatusChanged(address indexed contractAddress, bool enabled);
+    // === Events ===
+
+    // Registration & Contract Management
+    event ContractRegistered(address indexed contractAddress, address indexed admin, address indexed registeredBy);
+    event ContractUnregistered(address indexed contractAddress, address indexed by);
+    event ContractRemoved(address indexed contractAddress, address indexed by);
+
+    // Credits Management
+    event CreditsAdded(address indexed contractAddress, uint256 amount, address indexed by);
+    event CreditsRemoved(address indexed contractAddress, uint256 amount, address indexed by);
+    event CreditsSet(address indexed contractAddress, uint256 previousAmount, uint256 newAmount, address indexed by);
+    event CreditsUsed(address indexed contractAddress, address indexed caller, uint256 gasUsed, uint256 creditsDeducted);
+    event CreditsPurchased(address indexed contractAddress, uint256 indexed packageId, address indexed purchaser, uint256 creditsAwarded, uint256 cost);
+
+    // Configuration Changes
+    event AdminChanged(address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin, address changedBy);
+    event ActiveStatusChanged(address indexed contractAddress, bool active, address indexed changedBy);
+    event WhitelistStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
+    event SingleUseStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
+
+    // Whitelist Management
+    event UsersAddedToWhitelist(address indexed contractAddress, address[] users, address indexed addedBy);
+    event UsersRemovedFromWhitelist(address indexed contractAddress, address[] users, address indexed removedBy);
+    event UsedAddressesReset(address indexed contractAddress, address[] users, address indexed resetBy);
+
+    // DAO Management
     event DAOChanged(address indexed oldDAO, address indexed newDAO);
-    event CreditPackageAdded(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address paymentToken, uint256 burnPercentage);
-    event CreditPackageUpdated(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address paymentToken, uint256 burnPercentage);
-    event CreditPackageStatusChanged(uint256 indexed packageId, bool active);
-    event CreditsPurchased(address indexed contractAddress, uint256 indexed packageId, uint256 amount, uint256 cost);
+
+    // Credit Packages
+    event CreditPackageAdded(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed addedBy);
+    event CreditPackageUpdated(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed updatedBy);
+    event CreditPackageStatusChanged(uint256 indexed packageId, bool active, address indexed changedBy);
+
+    // Financial Operations
+    event ETHWithdrawn(address indexed to, uint256 amount, address indexed withdrawnBy);
+    event TokensWithdrawn(address indexed token, address indexed to, uint256 amount, address indexed withdrawnBy);
     event TokensBurned(address indexed token, uint256 amount);
-    event SingleUseStatusChanged(address indexed contractAddress, bool enabled);
+
+    // Payment Processing
+    event ETHPaymentProcessed(address indexed payer, uint256 amount, uint256 refund);
+    event TokenPaymentProcessed(address indexed payer, address indexed token, uint256 amount, uint256 burnAmount);
 
     // Custom errors for better gas efficiency
     error NotDAO();
@@ -201,8 +224,8 @@ contract GasStation is ReentrancyGuard {
         gc.credits = creditsAwarded;
         gc.whitelistEnabled = true;
 
-        emit ContractRegistered(contractAddress, admin);
-        emit CreditsPurchased(contractAddress, packageId, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
+        emit ContractRegistered(contractAddress, admin, msg.sender);
+        emit CreditsPurchased(contractAddress, packageId, msg.sender, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
     }
 
     /**
@@ -221,7 +244,7 @@ contract GasStation is ReentrancyGuard {
         // Add credits to the contract
         _getGasStationStorage().contracts[contractAddress].credits += creditsAwarded;
 
-        emit CreditsPurchased(contractAddress, packageId, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
+        emit CreditsPurchased(contractAddress, packageId, msg.sender, creditsAwarded, _getGasStationStorage().creditPackages[packageId].costInWei);
     }
 
     /**
@@ -360,7 +383,7 @@ contract GasStation is ReentrancyGuard {
     {
         address oldAdmin = _getGasStationStorage().contracts[contractAddress].admin;
         _getGasStationStorage().contracts[contractAddress].admin = newAdmin;
-        emit AdminChanged(contractAddress, oldAdmin, newAdmin);
+        emit AdminChanged(contractAddress, oldAdmin, newAdmin, msg.sender);
     }
 
     /**
@@ -372,7 +395,7 @@ contract GasStation is ReentrancyGuard {
         contractExists(contractAddress)
     {
         _getGasStationStorage().contracts[contractAddress].active = active;
-        emit ActiveStatusChanged(contractAddress, active);
+        emit ActiveStatusChanged(contractAddress, active, msg.sender);
     }
 
     /**
@@ -381,7 +404,7 @@ contract GasStation is ReentrancyGuard {
      */
     function setWhitelistEnabled(address contractAddress, bool enabled) external onlyAdminOrDAO(contractAddress) {
         _getGasStationStorage().contracts[contractAddress].whitelistEnabled = enabled;
-        emit WhitelistStatusChanged(contractAddress, enabled);
+        emit WhitelistStatusChanged(contractAddress, enabled, msg.sender);
     }
 
     /**
@@ -390,7 +413,7 @@ contract GasStation is ReentrancyGuard {
      */
     function setSingleUseEnabled(address contractAddress, bool enabled) external onlyAdminOrDAO(contractAddress) {
         _getGasStationStorage().contracts[contractAddress].singleUseEnabled = enabled;
-        emit SingleUseStatusChanged(contractAddress, enabled);
+        emit SingleUseStatusChanged(contractAddress, enabled, msg.sender);
     }
 
     /**
@@ -401,6 +424,7 @@ contract GasStation is ReentrancyGuard {
         for (uint256 i = 0; i < users.length; i++) {
             _getGasStationStorage().contracts[contractAddress].whitelist[users[i]] = true;
         }
+        emit UsersAddedToWhitelist(contractAddress, users, msg.sender);
     }
 
     /**
@@ -411,6 +435,7 @@ contract GasStation is ReentrancyGuard {
         for (uint256 i = 0; i < users.length; i++) {
             _getGasStationStorage().contracts[contractAddress].whitelist[users[i]] = false;
         }
+        emit UsersRemovedFromWhitelist(contractAddress, users, msg.sender);
     }
 
     /**
@@ -421,6 +446,7 @@ contract GasStation is ReentrancyGuard {
         for (uint256 i = 0; i < users.length; i++) {
             _getGasStationStorage().contracts[contractAddress].usedAddresses[users[i]] = false;
         }
+        emit UsedAddressesReset(contractAddress, users, msg.sender);
     }
 
     // === DAO functions (onlyDAO) ===
@@ -432,7 +458,7 @@ contract GasStation is ReentrancyGuard {
      */
     function addCredits(address contractAddress, uint256 amount) external onlyDAO {
         _getGasStationStorage().contracts[contractAddress].credits += amount;
-        emit CreditsAdded(contractAddress, amount);
+        emit CreditsAdded(contractAddress, amount, msg.sender);
     }
 
     /**
@@ -447,7 +473,7 @@ contract GasStation is ReentrancyGuard {
         if (currentCredits < amount) revert InsufficientCredits();
 
         _getGasStationStorage().contracts[contractAddress].credits = currentCredits - amount;
-        emit CreditsRemoved(contractAddress, amount);
+        emit CreditsRemoved(contractAddress, amount, msg.sender);
     }
 
     /**
@@ -456,8 +482,9 @@ contract GasStation is ReentrancyGuard {
      * @param amount Amount of credits to set
      */
     function setCredits(address contractAddress, uint256 amount) external onlyDAO {
+        uint256 previousAmount = _getGasStationStorage().contracts[contractAddress].credits;
         _getGasStationStorage().contracts[contractAddress].credits = amount;
-        emit CreditsSet(contractAddress, amount);
+        emit CreditsSet(contractAddress, previousAmount, amount, msg.sender);
     }
 
     /**
@@ -466,7 +493,7 @@ contract GasStation is ReentrancyGuard {
      */
     function unregisterContract(address contractAddress) external onlyDAO {
         delete _getGasStationStorage().contracts[contractAddress];
-        emit ContractUnregistered(contractAddress);
+        emit ContractUnregistered(contractAddress, msg.sender);
     }
 
     /**
@@ -475,7 +502,7 @@ contract GasStation is ReentrancyGuard {
      */
     function removeContract(address contractAddress) external onlyDAO {
         delete _getGasStationStorage().contracts[contractAddress];
-        emit ContractRemoved(contractAddress);
+        emit ContractRemoved(contractAddress, msg.sender);
     }
 
     /**
@@ -518,7 +545,7 @@ contract GasStation is ReentrancyGuard {
 
         $.nextPackageId++;
 
-        emit CreditPackageAdded(packageId, name, cost, creditsAwarded, paymentToken, burnPercentage);
+        emit CreditPackageAdded(packageId, name, cost, creditsAwarded, paymentToken, burnPercentage, msg.sender);
     }
 
     /**
@@ -550,7 +577,7 @@ contract GasStation is ReentrancyGuard {
         package.paymentToken = paymentToken;
         package.burnPercentage = burnPercentage;
 
-        emit CreditPackageUpdated(packageId, name, cost, creditsAwarded, paymentToken, burnPercentage);
+        emit CreditPackageUpdated(packageId, name, cost, creditsAwarded, paymentToken, burnPercentage, msg.sender);
     }
 
     /**
@@ -563,7 +590,7 @@ contract GasStation is ReentrancyGuard {
         if (bytes(package.name).length == 0) revert PackageNotFound();
 
         package.active = active;
-        emit CreditPackageStatusChanged(packageId, active);
+        emit CreditPackageStatusChanged(packageId, active, msg.sender);
     }
 
     /**
@@ -573,10 +600,14 @@ contract GasStation is ReentrancyGuard {
     function _handleETHPayment(CreditPackage storage package) private {
         if (msg.value < package.costInWei) revert InsufficientPayment();
 
+        uint256 refund = 0;
         // Refund excess payment if any
         if (msg.value > package.costInWei) {
-            payable(msg.sender).transfer(msg.value - package.costInWei);
+            refund = msg.value - package.costInWei;
+            payable(msg.sender).transfer(refund);
         }
+
+        emit ETHPaymentProcessed(msg.sender, package.costInWei, refund);
     }
 
     /**
@@ -596,9 +627,10 @@ contract GasStation is ReentrancyGuard {
             revert TokenTransferFailed();
         }
 
+        uint256 burnAmount = 0;
         // Handle burning if specified
         if (package.burnPercentage > 0) {
-            uint256 burnAmount = (package.costInWei * package.burnPercentage) / 10000;
+            burnAmount = (package.costInWei * package.burnPercentage) / 10000;
 
             // Try to burn tokens (if token supports burning)
             try IERC20Burnable(package.paymentToken).burn(burnAmount) {
@@ -608,6 +640,8 @@ contract GasStation is ReentrancyGuard {
                 // This is acceptable as some tokens may not support burning
             }
         }
+
+        emit TokenPaymentProcessed(msg.sender, package.paymentToken, package.costInWei, burnAmount);
     }
 
     /**
@@ -628,6 +662,8 @@ contract GasStation is ReentrancyGuard {
         if (!erc20.transfer(to, withdrawAmount)) {
             revert TokenTransferFailed();
         }
+
+        emit TokensWithdrawn(token, to, withdrawAmount, msg.sender);
     }
     /**
      * @dev Withdraw ETH from credit purchases (DAO only)
@@ -641,6 +677,7 @@ contract GasStation is ReentrancyGuard {
         if (withdrawAmount > balance) revert InsufficientCredits();
 
         to.transfer(withdrawAmount);
+        emit ETHWithdrawn(to, withdrawAmount, msg.sender);
     }
 
     /**

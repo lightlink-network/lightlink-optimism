@@ -43,24 +43,46 @@ contract GasStationTest is Test {
     address public otherUser = makeAddr("otherUser");
     address public nonAdmin = makeAddr("nonAdmin");
 
-    // Events for testing
-    event ContractRegistered(address indexed contractAddress, address indexed admin);
-    event CreditsAdded(address indexed contractAddress, uint256 amount);
-    event CreditsUsed(address indexed contractAddress, address caller, uint256 gasUsed);
-    event CreditsRemoved(address indexed contractAddress, uint256 amount);
-    event CreditsSet(address indexed contractAddress, uint256 amount);
-    event ContractUnregistered(address indexed contractAddress);
-    event ContractRemoved(address indexed contractAddress);
-    event AdminChanged(address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin);
-    event ActiveStatusChanged(address indexed contractAddress, bool active);
-    event WhitelistStatusChanged(address indexed contractAddress, bool enabled);
+    // Events for testing - updated to match new signatures
+    // Registration & Contract Management
+    event ContractRegistered(address indexed contractAddress, address indexed admin, address indexed registeredBy);
+    event ContractUnregistered(address indexed contractAddress, address indexed by);
+    event ContractRemoved(address indexed contractAddress, address indexed by);
+
+    // Credits Management
+    event CreditsAdded(address indexed contractAddress, uint256 amount, address indexed by);
+    event CreditsRemoved(address indexed contractAddress, uint256 amount, address indexed by);
+    event CreditsSet(address indexed contractAddress, uint256 previousAmount, uint256 newAmount, address indexed by);
+    event CreditsUsed(address indexed contractAddress, address indexed caller, uint256 gasUsed, uint256 creditsDeducted);
+    event CreditsPurchased(address indexed contractAddress, uint256 indexed packageId, address indexed purchaser, uint256 creditsAwarded, uint256 cost);
+
+    // Configuration Changes
+    event AdminChanged(address indexed contractAddress, address indexed oldAdmin, address indexed newAdmin, address changedBy);
+    event ActiveStatusChanged(address indexed contractAddress, bool active, address indexed changedBy);
+    event WhitelistStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
+    event SingleUseStatusChanged(address indexed contractAddress, bool enabled, address indexed changedBy);
+
+    // Whitelist Management
+    event UsersAddedToWhitelist(address indexed contractAddress, address[] users, address indexed addedBy);
+    event UsersRemovedFromWhitelist(address indexed contractAddress, address[] users, address indexed removedBy);
+    event UsedAddressesReset(address indexed contractAddress, address[] users, address indexed resetBy);
+
+    // DAO Management
     event DAOChanged(address indexed oldDAO, address indexed newDAO);
-    event CreditPackageAdded(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address paymentToken, uint256 burnPercentage);
-    event CreditPackageUpdated(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address paymentToken, uint256 burnPercentage);
-    event CreditPackageStatusChanged(uint256 indexed packageId, bool active);
-    event CreditsPurchased(address indexed contractAddress, uint256 indexed packageId, uint256 amount, uint256 cost);
+
+    // Credit Packages
+    event CreditPackageAdded(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed addedBy);
+    event CreditPackageUpdated(uint256 indexed packageId, string name, uint256 cost, uint256 creditsAwarded, address indexed paymentToken, uint256 burnPercentage, address indexed updatedBy);
+    event CreditPackageStatusChanged(uint256 indexed packageId, bool active, address indexed changedBy);
+
+    // Financial Operations
+    event ETHWithdrawn(address indexed to, uint256 amount, address indexed withdrawnBy);
+    event TokensWithdrawn(address indexed token, address indexed to, uint256 amount, address indexed withdrawnBy);
     event TokensBurned(address indexed token, uint256 amount);
-    event SingleUseStatusChanged(address indexed contractAddress, bool enabled);
+
+    // Payment Processing
+    event ETHPaymentProcessed(address indexed payer, uint256 amount, uint256 refund);
+    event TokenPaymentProcessed(address indexed payer, address indexed token, uint256 amount, uint256 burnAmount);
 
     function setUp() public {
         gasStation = new GasStation(dao);
@@ -107,11 +129,11 @@ contract GasStationTest is Test {
     function test_registerContract_success() public {
         vm.startPrank(user);
 
-        vm.expectEmit(true, true, false, true);
-        emit ContractRegistered(address(targetContract), admin);
+        vm.expectEmit(true, true, true, true);
+        emit ContractRegistered(address(targetContract), admin, user);
 
-        vm.expectEmit(true, true, false, true);
-        emit CreditsPurchased(address(targetContract), 1, 1000, 0.1 ether);
+        vm.expectEmit(true, true, true, true);
+        emit CreditsPurchased(address(targetContract), 1, user, 1000, 0.1 ether);
 
         gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
         vm.stopPrank();
@@ -192,8 +214,8 @@ contract GasStationTest is Test {
 
         // Purchase more credits
         vm.startPrank(user);
-        vm.expectEmit(true, true, false, true);
-        emit CreditsPurchased(address(targetContract), 2, 10000, 1 ether);
+        vm.expectEmit(true, true, true, true);
+        emit CreditsPurchased(address(targetContract), 2, user, 10000, 1 ether);
 
         gasStation.purchaseCredits{value: 1 ether}(address(targetContract), 2);
         vm.stopPrank();
@@ -312,7 +334,7 @@ contract GasStationTest is Test {
 
         vm.startPrank(admin);
         vm.expectEmit(true, true, true, true);
-        emit AdminChanged(address(targetContract), admin, otherUser);
+        emit AdminChanged(address(targetContract), admin, otherUser, admin);
 
         gasStation.setAdmin(address(targetContract), otherUser);
         vm.stopPrank();
@@ -354,7 +376,7 @@ contract GasStationTest is Test {
 
         vm.startPrank(admin);
         vm.expectEmit(true, false, false, true);
-        emit ActiveStatusChanged(address(targetContract), false);
+        emit ActiveStatusChanged(address(targetContract), false, admin);
 
         gasStation.setActive(address(targetContract), false);
         vm.stopPrank();
@@ -368,7 +390,7 @@ contract GasStationTest is Test {
 
         vm.startPrank(admin);
         vm.expectEmit(true, false, false, true);
-        emit WhitelistStatusChanged(address(targetContract), false);
+        emit WhitelistStatusChanged(address(targetContract), false, admin);
 
         gasStation.setWhitelistEnabled(address(targetContract), false);
         vm.stopPrank();
@@ -384,7 +406,7 @@ contract GasStationTest is Test {
 
         vm.startPrank(admin);
         vm.expectEmit(true, false, false, true);
-        emit SingleUseStatusChanged(address(targetContract), true);
+        emit SingleUseStatusChanged(address(targetContract), true, admin);
 
         gasStation.setSingleUseEnabled(address(targetContract), true);
         vm.stopPrank();
@@ -448,7 +470,7 @@ contract GasStationTest is Test {
 
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
-        emit CreditsAdded(address(targetContract), 500);
+        emit CreditsAdded(address(targetContract), 500, dao);
 
         gasStation.addCredits(address(targetContract), 500);
         vm.stopPrank();
@@ -468,7 +490,7 @@ contract GasStationTest is Test {
 
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
-        emit CreditsRemoved(address(targetContract), 200);
+        emit CreditsRemoved(address(targetContract), 200, dao);
 
         gasStation.removeCredits(address(targetContract), 200);
         vm.stopPrank();
@@ -491,7 +513,7 @@ contract GasStationTest is Test {
 
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
-        emit CreditsSet(address(targetContract), 5000);
+        emit CreditsSet(address(targetContract), 1000, 5000, dao);
 
         gasStation.setCredits(address(targetContract), 5000);
         vm.stopPrank();
@@ -506,8 +528,8 @@ contract GasStationTest is Test {
         assertTrue(gasStation.isRegistered(address(targetContract)));
 
         vm.startPrank(dao);
-        vm.expectEmit(true, false, false, false);
-        emit ContractUnregistered(address(targetContract));
+        vm.expectEmit(true, false, false, true);
+        emit ContractUnregistered(address(targetContract), dao);
 
         gasStation.unregisterContract(address(targetContract));
         vm.stopPrank();
@@ -520,8 +542,8 @@ contract GasStationTest is Test {
         gasStation.registerContract{value: 0.1 ether}(address(targetContract), admin, 1);
 
         vm.startPrank(dao);
-        vm.expectEmit(true, false, false, false);
-        emit ContractRemoved(address(targetContract));
+        vm.expectEmit(true, false, false, true);
+        emit ContractRemoved(address(targetContract), dao);
 
         gasStation.removeContract(address(targetContract));
         vm.stopPrank();
@@ -553,7 +575,7 @@ contract GasStationTest is Test {
     function test_addCreditPackage() public {
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
-        emit CreditPackageAdded(4, "Enterprise", 5 ether, 50000, address(0), 0);
+        emit CreditPackageAdded(4, "Enterprise", 5 ether, 50000, address(0), 0, dao);
 
         gasStation.addCreditPackage("Enterprise", 5 ether, 50000, address(0), 0);
         vm.stopPrank();
@@ -583,7 +605,7 @@ contract GasStationTest is Test {
     function test_updateCreditPackage() public {
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
-        emit CreditPackageUpdated(1, "Updated Starter", 0.2 ether, 2000, address(burnableToken), 1000);
+        emit CreditPackageUpdated(1, "Updated Starter", 0.2 ether, 2000, address(burnableToken), 1000, dao);
 
         gasStation.updateCreditPackage(1, "Updated Starter", 0.2 ether, 2000, address(burnableToken), 1000);
         vm.stopPrank();
@@ -607,7 +629,7 @@ contract GasStationTest is Test {
     function test_setCreditPackageActive() public {
         vm.startPrank(dao);
         vm.expectEmit(true, false, false, true);
-        emit CreditPackageStatusChanged(1, false);
+        emit CreditPackageStatusChanged(1, false, dao);
 
         gasStation.setCreditPackageActive(1, false);
         vm.stopPrank();
