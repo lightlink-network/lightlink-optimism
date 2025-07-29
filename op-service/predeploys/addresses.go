@@ -31,6 +31,7 @@ const (
 	SuperchainWETH                = "0x4200000000000000000000000000000000000024"
 	ETHLiquidity                  = "0x4200000000000000000000000000000000000025"
 	SuperchainTokenBridge         = "0x4200000000000000000000000000000000000028"
+	GasStation                    = "0x4300000000000000000000000000000000000001"
 	Create2Deployer               = "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2"
 	MultiCall3                    = "0xcA11bde05977b3631167028862bE2a173976CA11"
 	Safe_v130                     = "0x69f4D1788e39c87893C980c06EdF4b7f686e2938"
@@ -72,6 +73,7 @@ var (
 	SuperchainWETHAddr                = common.HexToAddress(SuperchainWETH)
 	ETHLiquidityAddr                  = common.HexToAddress(ETHLiquidity)
 	SuperchainTokenBridgeAddr         = common.HexToAddress(SuperchainTokenBridge)
+	GasStationAddr                    = common.HexToAddress(GasStation)
 	Create2DeployerAddr               = common.HexToAddress(Create2Deployer)
 	MultiCall3Addr                    = common.HexToAddress(MultiCall3)
 	Safe_v130Addr                     = common.HexToAddress(Safe_v130)
@@ -173,6 +175,9 @@ func init() {
 	Predeploys["EntryPoint_v070"] = &Predeploy{
 		Address:       EntryPoint_v070Addr,
 		ProxyDisabled: true,
+	}
+	Predeploys["GasStation"] = &Predeploy{
+		Address: GasStationAddr,
 	}
 
 	for _, predeploy := range Predeploys {

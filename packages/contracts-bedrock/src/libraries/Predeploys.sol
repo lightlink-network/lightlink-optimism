@@ -111,6 +111,9 @@ library Predeploys {
     /// @notice Address of the SuperchainTokenBridge predeploy.
     address internal constant SUPERCHAIN_TOKEN_BRIDGE = 0x4200000000000000000000000000000000000028;
 
+    /// @notice Address of the GasStation predeploy.
+    address internal constant GAS_STATION = 0x4300000000000000000000000000000000000001;
+
     /// @notice Returns the name of the predeploy at the given address.
     function getName(address _addr) internal pure returns (string memory out_) {
         require(isPredeployNamespace(_addr), "Predeploys: address must be a predeploy");
@@ -143,6 +146,7 @@ library Predeploys {
         if (_addr == OPTIMISM_SUPERCHAIN_ERC20_FACTORY) return "OptimismSuperchainERC20Factory";
         if (_addr == OPTIMISM_SUPERCHAIN_ERC20_BEACON) return "OptimismSuperchainERC20Beacon";
         if (_addr == SUPERCHAIN_TOKEN_BRIDGE) return "SuperchainTokenBridge";
+        if (_addr == GAS_STATION) return "GasStation";
         revert("Predeploys: unnamed predeploy");
     }
 
@@ -161,11 +165,12 @@ library Predeploys {
             || _addr == L1_FEE_VAULT || _addr == OPERATOR_FEE_VAULT || _addr == SCHEMA_REGISTRY || _addr == EAS
             || _addr == GOVERNANCE_TOKEN || (_useInterop && _addr == CROSS_L2_INBOX)
             || (_useInterop && _addr == L2_TO_L2_CROSS_DOMAIN_MESSENGER) || (_useInterop && _addr == SUPERCHAIN_WETH)
-            || (_useInterop && _addr == ETH_LIQUIDITY) || (_useInterop && _addr == SUPERCHAIN_TOKEN_BRIDGE);
+            || (_useInterop && _addr == ETH_LIQUIDITY) || (_useInterop && _addr == SUPERCHAIN_TOKEN_BRIDGE)
+            || _addr == GAS_STATION;
     }
 
     function isPredeployNamespace(address _addr) internal pure returns (bool) {
-        return uint160(_addr) >> 11 == uint160(0x4200000000000000000000000000000000000000) >> 11;
+        return uint160(_addr) >> 11 == uint160(0x4200000000000000000000000000000000000000) >> 11 || _addr == GAS_STATION;
     }
 
     /// @notice Function to compute the expected address of the predeploy implementation
@@ -174,6 +179,12 @@ library Predeploys {
         require(
             isPredeployNamespace(_addr), "Predeploys: can only derive code-namespace address for predeploy addresses"
         );
+
+        // Special case for GasStation which is in 0x43 namespace
+        if (_addr == GAS_STATION) {
+            return address(uint160(0xc0D3C0d3C0d3c0d3c0D3C0D3C0D3C0d3c0d30001));
+        }
+
         return address(
             uint160(uint256(uint160(_addr)) & 0xffff | uint256(uint160(0xc0D3C0d3C0d3C0D3c0d3C0d3c0D3C0d3c0d30000)))
         );
