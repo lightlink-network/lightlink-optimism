@@ -189,7 +189,7 @@ contract GasStation is ReentrancyGuard, Initializable {
 
     /// @notice Initializer.
     /// @param _dao Address of the DAO multisig
-    function initialize(address _dao) external initializer validAddress(_dao) {
+    function initialize(address _dao) external initializer {
         GasStationStorage storage $ = _getGasStationStorage();
         $.dao = _dao;
         $.nextPackageId = 1;
